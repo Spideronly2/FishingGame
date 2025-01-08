@@ -1,109 +1,152 @@
 import pygame
 import random
+import sys
 
-# Inicialização do Pygame
+# Initialize Pygame
 pygame.init()
 
-# Configurações da tela
-screen_width = 800
-screen_height = 600
-screen = pygame.display.set_mode((screen_width, screen_height))
-pygame.display.set_caption("Fishing Game")
+# Screen dimensions and game settings
+SCREEN_WIDTH = 800
+SCREEN_HEIGHT = 400
+FPS = 60
+TILE_SIZE = 20
 
-# Cores
-BLACK = (0, 0, 0)
+# Colors
 WHITE = (255, 255, 255)
+BLACK = (0, 0, 0)
+ORANGE = (255, 165, 0)
 
-# Fonte para exibir o score e o tempo
-font = pygame.font.SysFont("arial", 24)
+# Load ocean background image
+try:
+    ocean_bg = pygame.image.load("background_image.png")  # Substitua pelo nome da sua imagem de fundo
+    ocean_bg = pygame.transform.scale(ocean_bg, (SCREEN_WIDTH, SCREEN_HEIGHT))
+except FileNotFoundError:
+    print("Aviso: Imagem 'background_image.png' não encontrada! O fundo será preto.")
+    ocean_bg = None
 
-# Variáveis globais
+# Initialize screen
+screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+pygame.display.set_caption("Pixel Art Fishing Game")
 clock = pygame.time.Clock()
-running = True
 
-# Variáveis de pontuação e tempo
-score = 0  # Pontos iniciais
-time_left = 60  # Tempo inicial (segundos)
-
-# Controladores para movimentos
-controls = {"left": False, "right": False}
-
-# Posição do gancho
+# Boat and Hook
+boat = {
+    "x": SCREEN_WIDTH // 2 - TILE_SIZE,
+    "y": 50,
+    "width": TILE_SIZE * 2,
+    "height": TILE_SIZE,
+    "hook_x": SCREEN_WIDTH // 2,
+    "hook_y": 80
+}
 hook = {
-    "x": screen_width // 2,
-    "y": screen_height - 100,
+    "x": boat["hook_x"],
+    "y": boat["hook_y"],
+    "width": TILE_SIZE // 2,
+    "height": TILE_SIZE,
     "is_catching": False
 }
 
-# Evento para controlar o tempo (1000 ms = 1 segundo)
-pygame.time.set_timer(pygame.USEREVENT, 1000)
+# Fish
+fish = {
+    "x": random.randint(0, SCREEN_WIDTH - TILE_SIZE),
+    "y": random.randint(200, SCREEN_HEIGHT - TILE_SIZE),
+    "width": TILE_SIZE,
+    "height": TILE_SIZE // 2,
+    "caught": False
+}
 
-# Renderizar texto na tela
-def render_text():
-    # Pontuação
-    score_text = font.render(f"Score: {score}", True, WHITE)
-    screen.blit(score_text, (10, 10))
+# Score and Time
+score = 0
+time_left = 60  # seconds
+font = pygame.font.Font(None, 36)
+game_over = False
 
-    # Tempo restante
-    time_text = font.render(f"Time Left: {time_left}s", True, WHITE)
-    screen.blit(time_text, (10, 40))
+# Functions
+def draw_boat():
+    pygame.draw.rect(screen, (139, 69, 19), (boat["x"], boat["y"], boat["width"], boat["height"]))
+    pygame.draw.rect(screen, BLACK, (hook["x"], hook["y"], hook["width"], hook["height"]))
 
-# Renderizar elementos na tela
-def render():
-    screen.fill(BLACK)  # Fundo
-    render_text()  # Desenha o texto do score e do tempo
-    pygame.draw.rect(screen, WHITE, (hook["x"], hook["y"], 10, 50))  # Desenha o gancho
 
-# Atualizar lógica do jogo
-def update():
-    global score
-    if controls["left"] and hook["x"] > 0:
-        hook["x"] -= 5
-    if controls["right"] and hook["x"] < screen_width - 10:
-        hook["x"] += 5
-    
-    # Simular captura para aumentar o score
-    if hook["is_catching"]:  # Aqui você pode adicionar condições reais
-        score += 10  # Aumenta 10 pontos se algo é capturado
+def draw_fish():
+    if not fish["caught"]:
+        pygame.draw.rect(screen, ORANGE, (fish["x"], fish["y"], fish["width"], fish["height"]))
 
-# Loop principal
-while running:
+
+def detect_collision(hook, fish):
+    return (
+        hook["x"] < fish["x"] + fish["width"] and
+        hook["x"] + hook["width"] > fish["x"] and
+        hook["y"] < fish["y"] + fish["height"] and
+        hook["y"] + hook["height"] > fish["y"]
+    )
+
+
+def render_text(text, position, color=WHITE):
+    text_surface = font.render(text, True, color)
+    screen.blit(text_surface, position)
+
+
+# Game Loop
+start_ticks = pygame.time.get_ticks()
+while True:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
-            running = False
+            pygame.quit()
+            sys.exit()
 
-        # Detecta teclas pressionadas
-        if event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_LEFT:
-                controls["left"] = True
-            elif event.key == pygame.K_RIGHT:
-                controls["right"] = True
-            elif event.key == pygame.K_DOWN:  # Simula "pescar"
-                hook["is_catching"] = True
+    # Controls
+    keys = pygame.key.get_pressed()
+    if keys[pygame.K_LEFT] and boat["x"] > 0:
+        boat["x"] -= 4
+        hook["x"] -= 4
+    if keys[pygame.K_RIGHT] and boat["x"] < SCREEN_WIDTH - boat["width"]:
+        boat["x"] += 4
+        hook["x"] += 4
+    if keys[pygame.K_DOWN]:
+        hook["is_catching"] = True
+    else:
+        hook["is_catching"] = False
 
-        # Detecta teclas soltas
-        if event.type == pygame.KEYUP:
-            if event.key == pygame.K_LEFT:
-                controls["left"] = False
-            elif event.key == pygame.K_RIGHT:
-                controls["right"] = False
-            elif event.key == pygame.K_DOWN:
-                hook["is_catching"] = False
+    # Move hook
+    if hook["is_catching"] and hook["y"] < SCREEN_HEIGHT:
+        hook["y"] += 4
+    elif not hook["is_catching"] and hook["y"] > boat["hook_y"]:
+        hook["y"] -= 4
 
-        # Evento para diminuir o tempo
-        if event.type == pygame.USEREVENT:
-            if time_left > 0:
-                time_left -= 1
-            else:
-                print("Fim do jogo! O tempo acabou!")
-                running = False
+    # Collision
+    if detect_collision(hook, fish):
+        score += 1
+        fish = {
+            "x": random.randint(0, SCREEN_WIDTH - TILE_SIZE),
+            "y": random.randint(200, SCREEN_HEIGHT - TILE_SIZE),
+            "width": TILE_SIZE,
+            "height": TILE_SIZE // 2,
+            "caught": False
+        }
 
-    # Atualizar e renderizar o jogo
-    update()
-    render()
+    # Update time
+    seconds_elapsed = (pygame.time.get_ticks() - start_ticks) // 1000
+    time_left = 60 - seconds_elapsed
+
+    # Check for game over
+    if time_left <= 0:
+        game_over = True
+
+    # Draw everything
+    if ocean_bg:
+        screen.blit(ocean_bg, (0, 0))
+    else:
+        screen.fill((30, 144, 255))  # Azul padrão para simular oceano
+
+    draw_boat()
+    draw_fish()
+
+    # Draw score and time
+    render_text(f"Score: {score}", (10, 10))
+    render_text(f"Time: {time_left}s", (10, 50))
+
+    if game_over:
+        render_text("Game Over!", (SCREEN_WIDTH // 2 - 100, SCREEN_HEIGHT // 2), color=(255, 0, 0))
 
     pygame.display.flip()
-    clock.tick(60)
-
-# Finalizar Pygame
-pygame.quit()
+    clock.tick(FPS)
