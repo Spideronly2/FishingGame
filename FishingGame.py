@@ -1,117 +1,88 @@
 import pygame
 import random
 
-# Initialize Pygame
+# Inicialização do Pygame
 pygame.init()
 
-# Screen dimensions
-SCREEN_WIDTH = 800
-SCREEN_HEIGHT = 400
-TILE_SIZE = 20
-
-# Colors
-SKY_BLUE = (135, 206, 235)
-BROWN = (139, 69, 19)
-BLACK = (0, 0, 0)
-ORANGE = (255, 165, 0)
-
-# Create screen
-screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+# Configurações da tela
+screen_width = 800
+screen_height = 600
+screen = pygame.display.set_mode((screen_width, screen_height))
 pygame.display.set_caption("Fishing Game")
 
-# Clock for controlling frame rate
+# Cores
+BLACK = (0, 0, 0)
+WHITE = (255, 255, 255)
+
+# Fonte para exibir o score e o tempo
+font = pygame.font.SysFont("arial", 24)
+
+# Variáveis globais
 clock = pygame.time.Clock()
+running = True
 
-# Boat and hook
-boat = {
-    "x": SCREEN_WIDTH // 2 - TILE_SIZE,
-    "y": 50,
-    "width": TILE_SIZE * 2,
-    "height": TILE_SIZE,
-    "hook_x": SCREEN_WIDTH // 2,
-    "hook_y": 80
-}
+# Variáveis de pontuação e tempo
+score = 0  # Pontos iniciais
+time_left = 60  # Tempo inicial (segundos)
 
+# Controladores para movimentos
+controls = {"left": False, "right": False}
+
+# Posição do gancho
 hook = {
-    "x": boat["hook_x"],
-    "y": boat["hook_y"],
-    "width": TILE_SIZE // 2,
-    "height": TILE_SIZE,
+    "x": screen_width // 2,
+    "y": screen_height - 100,
     "is_catching": False
 }
 
-# Fish
-fish = {
-    "x": random.randint(0, SCREEN_WIDTH - TILE_SIZE),
-    "y": random.randint(200, SCREEN_HEIGHT - TILE_SIZE),
-    "width": TILE_SIZE,
-    "height": TILE_SIZE // 2,
-    "caught": False
-}
+# Evento para controlar o tempo (1000 ms = 1 segundo)
+pygame.time.set_timer(pygame.USEREVENT, 1000)
 
-# Controls
-controls = {"left": False, "right": False}
+# Renderizar texto na tela
+def render_text():
+    # Pontuação
+    score_text = font.render(f"Score: {score}", True, WHITE)
+    screen.blit(score_text, (10, 10))
 
-def draw_boat():
-    pygame.draw.rect(screen, BROWN, (boat["x"], boat["y"], boat["width"], boat["height"]))
-    pygame.draw.rect(screen, BLACK, (hook["x"], hook["y"], hook["width"], hook["height"]))
+    # Tempo restante
+    time_text = font.render(f"Time Left: {time_left}s", True, WHITE)
+    screen.blit(time_text, (10, 40))
 
-def draw_fish():
-    if not fish["caught"]:
-        pygame.draw.rect(screen, ORANGE, (fish["x"], fish["y"], fish["width"], fish["height"]))
-
-def detect_collision(hook, fish):
-    return (
-        hook["x"] < fish["x"] + fish["width"] and
-        hook["x"] + hook["width"] > fish["x"] and
-        hook["y"] < fish["y"] + fish["height"] and
-        hook["y"] + hook["height"] > fish["y"]
-    )
-
-def update():
-    # Move boat
-    if controls["left"] and boat["x"] > 0:
-        boat["x"] -= 2
-        hook["x"] -= 2
-    if controls["right"] and boat["x"] < SCREEN_WIDTH - boat["width"]:
-        boat["x"] += 2
-        hook["x"] += 2
-
-    # Lower or raise the hook
-    if hook["is_catching"] and hook["y"] < SCREEN_HEIGHT:
-        hook["y"] += 2
-    elif not hook["is_catching"] and hook["y"] > boat["hook_y"]:
-        hook["y"] -= 2
-
-    # Detect collision
-    if detect_collision(hook, fish):
-        fish["caught"] = True
-        hook["is_catching"] = False
-        hook["y"] = boat["hook_y"]  # Reset hook
-        # Spawn a new fish
-        fish["x"] = random.randint(0, SCREEN_WIDTH - TILE_SIZE)
-        fish["y"] = random.randint(200, SCREEN_HEIGHT - TILE_SIZE)
-        fish["caught"] = False
-
+# Renderizar elementos na tela
 def render():
-    screen.fill(SKY_BLUE)
-    draw_boat()
-    draw_fish()
+    screen.fill(BLACK)  # Fundo
+    render_text()  # Desenha o texto do score e do tempo
+    pygame.draw.rect(screen, WHITE, (hook["x"], hook["y"], 10, 50))  # Desenha o gancho
 
-# Game loop
-running = True
+# Atualizar lógica do jogo
+def update():
+    global score
+    if controls["left"] and hook["x"] > 0:
+        hook["x"] -= 5
+    if controls["right"] and hook["x"] < screen_width - 10:
+        hook["x"] += 5
+    
+    # Simular captura para aumentar o score
+    if hook["is_catching"]:  # Aqui você pode adicionar condições reais
+        score += 10  # Aumenta 10 pontos se algo é capturado
+
+# Loop principal
 while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
-        elif event.type == pygame.KEYDOWN:
+
+        # Detecta teclas pressionadas
+        if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_LEFT:
                 controls["left"] = True
             elif event.key == pygame.K_RIGHT:
                 controls["right"] = True
-            elif event.key == pygame.K_DOWN:
+            elif event.key == pygame.K_DOWN:  # Simula "pescar"
                 hook["is_catching"] = True
-        elif event.type == pygame.KEYUP:
+
+        # Detecta teclas soltas
+        if event.type == pygame.KEYUP:
             if event.key == pygame.K_LEFT:
                 controls["left"] = False
             elif event.key == pygame.K_RIGHT:
@@ -119,9 +90,20 @@ while running:
             elif event.key == pygame.K_DOWN:
                 hook["is_catching"] = False
 
+        # Evento para diminuir o tempo
+        if event.type == pygame.USEREVENT:
+            if time_left > 0:
+                time_left -= 1
+            else:
+                print("Fim do jogo! O tempo acabou!")
+                running = False
+
+    # Atualizar e renderizar o jogo
     update()
     render()
+
     pygame.display.flip()
     clock.tick(60)
 
+# Finalizar Pygame
 pygame.quit()
