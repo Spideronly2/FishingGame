@@ -1,209 +1,123 @@
 import pygame
 import random
-import sys
 
-# Inicialização do pygame
+# Inicializando o Pygame
 pygame.init()
 
-# Configurações da tela
-SCREEN_WIDTH = 800
-SCREEN_HEIGHT = 600
-screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-pygame.display.set_caption("Fishing Game")
+# Dimensões da tela
+WIDTH, HEIGHT = 800, 600
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
+pygame.display.set_caption("Jogo de Pesca")
 
 # Cores
 WHITE = (255, 255, 255)
-BLACK = (0, 0, 0)
-BLUE = (135, 206, 235)
-ORANGE = (255, 165, 0)
-BROWN = (139, 69, 19)
+BLUE = (0, 105, 148)
 
-# Configurações de áudio
-pygame.mixer.init()
-background_music = "background_music.mp3"
-catch_sound = pygame.mixer.Sound("catch_sound.wav")
-pygame.mixer.music.load(background_music)
-pygame.mixer.music.play(-1)
+# Carregar imagens
+background_image = pygame.image.load("background.png")  # Certifique-se de que esta imagem está no mesmo diretório
+boat_image = pygame.image.load("/mnt/data/Canoepixelart.png")  # Nova imagem do barco
+fish_image = pygame.image.load("/mnt/data/fishingpixelart.png")  # Nova imagem do peixe
 
-# Velocidade e dimensões
-boat_speed = 4
-tile_size = 40
+# Escalando imagens
+boat_image = pygame.transform.scale(boat_image, (100, 50))
+fish_image = pygame.transform.scale(fish_image, (40, 30))
 
-# Configurações iniciais
-game_running = False
-menu_active = True
-options_active = False
-fullscreen = False
-volume_music = 1.0
-volume_effects = 1.0
-pygame.mixer.music.set_volume(volume_music)
-catch_sound.set_volume(volume_effects)
-
-# Elementos do jogo
-boat = {"x": SCREEN_WIDTH / 2, "y": 50, "width": tile_size * 2, "height": tile_size, "color": BROWN}
-hook = {"x": boat["x"] + tile_size, "y": boat["y"] + 30, "width": 5, "height": 10, "color": BLACK, "is_catching": False}
-fish = {"x": random.randint(50, SCREEN_WIDTH - 50), "y": random.randint(200, SCREEN_HEIGHT - 50), "width": 20, "height": 10, "color": ORANGE, "caught": False, "dx": 2, "dy": 2}
-score = 0
-time_left = 30
-
+# Configurações do jogo
 clock = pygame.time.Clock()
+boat_x, boat_y = WIDTH // 2, HEIGHT - 100
+hook_x, hook_y = boat_x + 45, boat_y + 20
+boat_speed = 10  # Velocidade aumentada
+timer = 30
+score = 0
+font = pygame.font.Font(None, 36)
 
-# Fontes
-default_font = pygame.font.Font(None, 36)
+# Lista de peixes
+fish_list = []
+for i in range(5):
+    fish_x = random.randint(50, WIDTH - 50)
+    fish_y = random.randint(50, HEIGHT // 2)
+    fish_list.append([fish_x, fish_y])
 
-def draw_text(surface, text, x, y, color=BLACK, center=False):
-    text_obj = default_font.render(text, True, color)
-    text_rect = text_obj.get_rect()
-    if center:
-        text_rect.center = (x, y)
-    else:
-        text_rect.topleft = (x, y)
-    surface.blit(text_obj, text_rect)
+# Reiniciar jogo
+def restart_game():
+    global boat_x, hook_x, hook_y, timer, score, fish_list
+    boat_x = WIDTH // 2
+    hook_x = boat_x + 45
+    hook_y = boat_y + 20
+    timer = 30
+    score = 0
+    fish_list = []
+    for i in range(5):
+        fish_x = random.randint(50, WIDTH - 50)
+        fish_y = random.randint(50, HEIGHT // 2)
+        fish_list.append([fish_x, fish_y])
 
-def draw_menu():
-    screen.fill(WHITE)
-    draw_text(screen, "Fishing Game", SCREEN_WIDTH // 2, 150, color=BLACK, center=True)
-    draw_text(screen, "[J] Play", SCREEN_WIDTH // 2, 250, color=BLACK, center=True)
-    draw_text(screen, "[O] Options", SCREEN_WIDTH // 2, 300, color=BLACK, center=True)
-    draw_text(screen, "[Q] Quit", SCREEN_WIDTH // 2, 350, color=BLACK, center=True)
-    pygame.display.flip()
-
-def draw_options():
-    screen.fill(WHITE)
-    draw_text(screen, "Options", SCREEN_WIDTH // 2, 100, color=BLACK, center=True)
-    draw_text(screen, f"Volume Music: {int(volume_music * 100)}", SCREEN_WIDTH // 2, 200, color=BLACK, center=True)
-    draw_text(screen, f"Volume Effects: {int(volume_effects * 100)}", SCREEN_WIDTH // 2, 250, color=BLACK, center=True)
-    draw_text(screen, "[F] Toggle Fullscreen", SCREEN_WIDTH // 2, 300, color=BLACK, center=True)
-    draw_text(screen, "[M] Back to Menu", SCREEN_WIDTH // 2, 350, color=BLACK, center=True)
-    pygame.display.flip()
-
-def draw_game():
+# Loop do jogo
+running = True
+while running:
     screen.fill(BLUE)
+    screen.blit(background_image, (0, 0))
 
-    # Desenha o barco
-    pygame.draw.rect(screen, boat["color"], (boat["x"], boat["y"], boat["width"], boat["height"]))
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
 
-    # Desenha a linha
-    pygame.draw.line(screen, WHITE, (boat["x"] + tile_size, boat["y"] + boat["height"]), (hook["x"] + hook["width"] // 2, hook["y"]), 2)
-
-    # Desenha o anzol
-    pygame.draw.rect(screen, hook["color"], (hook["x"], hook["y"], hook["width"], hook["height"]))
-
-    # Desenha os peixes
-    if not fish["caught"]:
-        pygame.draw.rect(screen, fish["color"], (fish["x"], fish["y"], fish["width"], fish["height"]))
-
-    # Exibe o score e tempo
-    draw_text(screen, f"Score: {score}", 10, 10, WHITE)
-    draw_text(screen, f"Time Left: {int(time_left)}", 10, 40, WHITE)
-
-    pygame.display.flip()
-
-def handle_menu_events(event):
-    global menu_active, options_active, game_running
-    if event.type == pygame.KEYDOWN:
-        if event.key == pygame.K_j:
-            menu_active = False
-            game_running = True
-        elif event.key == pygame.K_o:
-            menu_active = False
-            options_active = True
-        elif event.key == pygame.K_q:
-            pygame.quit()
-            sys.exit()
-
-def handle_options_events(event):
-    global menu_active, options_active, volume_music, volume_effects, fullscreen
-    if event.type == pygame.KEYDOWN:
-        if event.key == pygame.K_f:
-            fullscreen = not fullscreen
-            if fullscreen:
-                pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.FULLSCREEN)
-            else:
-                pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-        elif event.key == pygame.K_m:
-            options_active = False
-            menu_active = True
-        elif event.key == pygame.K_UP:
-            volume_music = min(1.0, volume_music + 0.1)
-            pygame.mixer.music.set_volume(volume_music)
-        elif event.key == pygame.K_DOWN:
-            volume_music = max(0.0, volume_music - 0.1)
-            pygame.mixer.music.set_volume(volume_music)
-        elif event.key == pygame.K_LEFT:
-            volume_effects = max(0.0, volume_effects - 0.1)
-            catch_sound.set_volume(volume_effects)
-        elif event.key == pygame.K_RIGHT:
-            volume_effects = min(1.0, volume_effects + 0.1)
-            catch_sound.set_volume(volume_effects)
-
-def update_game():
-    global score, time_left, fish
-
+    # Controles
     keys = pygame.key.get_pressed()
-    if keys[pygame.K_LEFT] and boat["x"] > 0:
-        boat["x"] -= boat_speed
-        hook["x"] -= boat_speed
-    if keys[pygame.K_RIGHT] and boat["x"] < SCREEN_WIDTH - boat["width"]:
-        boat["x"] += boat_speed
-        hook["x"] += boat_speed
-    if keys[pygame.K_DOWN]:
-        hook["is_catching"] = True
-    else:
-        hook["is_catching"] = False
+    if keys[pygame.K_LEFT] and boat_x > 0:
+        boat_x -= boat_speed
+    if keys[pygame.K_RIGHT] and boat_x < WIDTH - 100:
+        boat_x += boat_speed
 
-    if hook["is_catching"] and hook["y"] < SCREEN_HEIGHT:
-        hook["y"] += 5
-    elif not hook["is_catching"] and hook["y"] > boat["y"] + boat["height"]:
-        hook["y"] -= 5
+    # Atualizar posição do gancho
+    hook_x = boat_x + 45
 
-    if (hook["x"] < fish["x"] + fish["width"] and
-        hook["x"] + hook["width"] > fish["x"] and
-        hook["y"] < fish["y"] + fish["height"] and
-        hook["y"] + hook["height"] > fish["y"]):
-        fish["caught"] = True
-        score += 1
-        time_left += 0.2
-        catch_sound.play()
-        fish = {"x": random.randint(50, SCREEN_WIDTH - 50), "y": random.randint(200, SCREEN_HEIGHT - 50), "width": 20, "height": 10, "color": ORANGE, "caught": False, "dx": random.choice([-2, 2]), "dy": random.choice([-2, 2])}
+    # Desenhar barco e gancho
+    screen.blit(boat_image, (boat_x, boat_y))
+    pygame.draw.line(screen, WHITE, (hook_x, hook_y), (hook_x, hook_y + 50), 2)
 
-    fish["x"] += fish["dx"]
-    fish["y"] += fish["dy"]
+    # Desenhar peixes
+    for fish in fish_list:
+        screen.blit(fish_image, (fish[0], fish[1]))
 
-    if fish["x"] <= 0 or fish["x"] >= SCREEN_WIDTH - fish["width"]:
-        fish["dx"] *= -1
-    if fish["y"] <= 200 or fish["y"] >= SCREEN_HEIGHT - fish["height"]:
-        fish["dy"] *= -1
+    # Detectar captura de peixes
+    for fish in fish_list[:]:
+        if hook_x in range(fish[0] - 20, fish[0] + 60) and hook_y + 50 in range(fish[1] - 10, fish[1] + 40):
+            fish_list.remove(fish)
+            score += 1
+            timer += 5  # Adiciona tempo ao pegar um peixe
 
+    # Atualizar timer
+    timer -= 1 / 30
+    if timer <= 0:
+        running = False
 
-def main():
-    global menu_active, options_active, game_running, time_left
+    # Exibir placar e tempo
+    score_text = font.render(f"Score: {score}", True, WHITE)
+    timer_text = font.render(f"Time: {int(timer)}", True, WHITE)
+    screen.blit(score_text, (10, 10))
+    screen.blit(timer_text, (10, 50))
 
-    while True:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit()
-                sys.exit()
+    # Atualizar tela
+    pygame.display.flip()
+    clock.tick(30)
 
-            if menu_active:
-                handle_menu_events(event)
-            elif options_active:
-                handle_options_events(event)
+# Exibir mensagem de fim de jogo
+screen.fill(BLUE)
+game_over_text = font.render("Game Over! Pressione Espaço para reiniciar.", True, WHITE)
+screen.blit(game_over_text, (WIDTH // 2 - game_over_text.get_width() // 2, HEIGHT // 2))
+pygame.display.flip()
 
-        if menu_active:
-            draw_menu()
-        elif options_active:
-            draw_options()
-        elif game_running:
-            time_left -= clock.get_time() / 1000
-            if time_left <= 0:
-                game_running = False
-                menu_active = True
+# Esperar reinício ou sair
+waiting = True
+while waiting:
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            waiting = False
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_SPACE:
+                restart_game()
+                running = True
+                waiting = False
 
-            update_game()
-            draw_game()
-
-        clock.tick(60)
-
-if __name__ == "__main__":
-    main()
+pygame.quit()
